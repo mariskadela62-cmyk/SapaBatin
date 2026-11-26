@@ -4,11 +4,30 @@ import urllib.error
 import urllib.request
 import uuid
 from datetime import datetime
-from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import (
+    Flask,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    session,
+    url_for,
+)
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = "sapabatin_secret_key_remajasehat"
+
+# ==========================================
+# KONFIGURASI GROQ AI & SESSION
+# ==========================================
+GROQ_API_KEY = os.environ.get(
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+)
+GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "openai/gpt-oss-120b"
+
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "sapabatin_secret_key_remajasehat")
 
 # ==========================================
 # KONFIGURASI UPLOAD BUKTI FOTO
@@ -38,7 +57,6 @@ DATABASE_OWNER = {
     "balasan_owner": [],  # Pesan keluar dari Owner ke pengguna saat ada masalah serius
 }
 
-
 DANGER_KEYWORDS = [
     "mati",
     "ingin mati",
@@ -49,155 +67,138 @@ DANGER_KEYWORDS = [
     "lukai diri",
     "menyakiti diri",
     "suicide",
-    "mati",
-  "ingin mati",
-  "pengen mati",
-  "mau mati",
-  "mending mati",
-  "bunuh diri",
-  "bundir",
-  "kill myself",
-  "kms",
-  "want to die",
-  "wanna die",
-  "end my life",
-  "akhiri hidup",
-  "mengakhiri hidup",
-  "akhiri semuanya",
-  "sudahi hidup",
-  "gantung diri",
-  "loncat dari",
-  "minum racun",
-  "overdosis",
-  "ingin hilang",
-  "menghilang selamanya",
-  "pergi selamanya",
-  "tidur selamanya",
-  "istirahat selamanya",
-  "pamit selamanya",
-  "selamat tinggal semuanya",
-  "capek hidup",
-  "lelah hidup",
-  "bosan hidup",
-  "tidak kuat lagi",
-  "gak kuat lagi",
-  "udah gak kuat",
-  "menyerah hidup",
-  "hidup gak berguna",
-  "tidak ada gunanya hidup",
-  "dunia lebih baik tanpaku",
-  "jadi beban",
-
-  "lukai diri",
-  "melukai diri",
-  "menyakiti diri",
-  "siksa diri",
-  "menyiksa diri",
-  "self harm",
-  "self-harm",
-  "selfharm",
-  "hurt myself",
-  "harm myself",
-  "sayat tangan",
-  "nyayat",
-  "cutting",
-  "gores tangan",
-  "mau dibunuh",
-  "diancam dibunuh",
-  "takut dibunuh",
-  "dipukuli",
-  "kdrt",
-  "kekerasan fisik",
-  "disiksa",
-  "dilecehkan",
-  "pelecehan",
-  "diperkosa",
-  "dalam bahaya"
-  "un-alive",
-  "unalive",
-  "mokad",
-  "koit",
-  "modar",
-  "b*ndir",
-  "b.u.n.d.i.r",
-  "m4ti",
-  "s*icide",
-  "suicidal",
-  "saya ingin mati",
-  "aku ingin mati",
-  "gw pengen mati",
-  "gue pengen mati",
-
-
-  "surat wasiat",
-  "pesan terakhir",
-  "titip orang tua",
-  "titip adik",
-  "titip kakak",
-  "titip keluarga",
-  "maafin aku semua",
-  "maafkan aku semua",
-  "terima kasih untuk semuanya",
-  "selamat tinggal dunia",
-  "goodbye world",
-  "nyebur",
-  "tabrakin diri",
-  "menabrakkan diri",
-  "minum baygon",
-  "minum obat banyak",
-  "tenggak obat",
-  "iris nadi",
-  "potong nadi",
-  "gorok",
-  "lompat gedung",
-  "loncat jembatan",
-
-
-  "gak ada jalan keluar",
-  "tidak ada jalan keluar",
-  "buntu banget",
-  "hampa banget",
-  "kosong banget",
-  "gak pantas hidup",
-  "tidak pantas hidup",
-  "sampah masyarakat",
-  "gagal total",
-  "hopeless",
-  "worthless",
-  "cant take it anymore",
-  "can't take it anymore",
-  "give up on life",
-  "tired of living",
-  "better off dead",
-  "no reason to live",
-
- 
-  "ancaman sebar",
-  "sebar foto",
-  "sebar video",
-  "diancam sebar",
-  "pemerasan",
-  "diperas",
-  "dirudapaksa",
-  "penculikan",
-  "diculik",
-  "disekap",
-  "penyekapan",
-  "ancaman pembunuhan",
-  "bawa senjata",
-  "ditodong",
-  "dianiaya",
-  "penganiayaan",
-  "babak belur",
-  "berdarah-darah",
-
- 
-  "dibully habis-habisan",
-  "gak punya siapa-siapa",
-  "tidak punya siapa-siapa",
-  "sendirian di dunia",
-  "semua orang benci aku",
-  "semua benci gw"
+    "pengen mati",
+    "mau mati",
+    "mending mati",
+    "bundir",
+    "kms",
+    "want to die",
+    "wanna die",
+    "end my life",
+    "mengakhiri hidup",
+    "akhiri semuanya",
+    "sudahi hidup",
+    "gantung diri",
+    "loncat dari",
+    "minum racun",
+    "overdosis",
+    "menghilang selamanya",
+    "pergi selamanya",
+    "tidur selamanya",
+    "istirahat selamanya",
+    "pamit selamanya",
+    "selamat tinggal semuanya",
+    "capek hidup",
+    "lelah hidup",
+    "bosan hidup",
+    "tidak kuat lagi",
+    "gak kuat lagi",
+    "udah gak kuat",
+    "menyerah hidup",
+    "hidup gak berguna",
+    "tidak ada gunanya hidup",
+    "dunia lebih baik tanpaku",
+    "jadi beban",
+    "melukai diri",
+    "siksa diri",
+    "menyiksa diri",
+    "self harm",
+    "self-harm",
+    "selfharm",
+    "hurt myself",
+    "harm myself",
+    "sayat tangan",
+    "nyayat",
+    "cutting",
+    "gores tangan",
+    "mau dibunuh",
+    "diancam dibunuh",
+    "takut dibunuh",
+    "dipukuli",
+    "kdrt",
+    "kekerasan fisik",
+    "disiksa",
+    "dilecehkan",
+    "pelecehan",
+    "diperkosa",
+    "dalam bahaya",
+    "un-alive",
+    "unalive",
+    "mokad",
+    "koit",
+    "modar",
+    "b*ndir",
+    "b.u.n.d.i.r",
+    "m4ti",
+    "s*icide",
+    "suicidal",
+    "saya ingin mati",
+    "aku ingin mati",
+    "gw pengen mati",
+    "gue pengen mati",
+    "surat wasiat",
+    "pesan terakhir",
+    "titip orang tua",
+    "titip adik",
+    "titip kakak",
+    "titip keluarga",
+    "maafin aku semua",
+    "maafkan aku semua",
+    "terima kasih untuk semuanya",
+    "selamat tinggal dunia",
+    "goodbye world",
+    "nyebur",
+    "tabrakin diri",
+    "menabrakkan diri",
+    "minum baygon",
+    "minum obat banyak",
+    "tenggak obat",
+    "iris nadi",
+    "potong nadi",
+    "gorok",
+    "lompat gedung",
+    "loncat jembatan",
+    "gak ada jalan keluar",
+    "tidak ada jalan keluar",
+    "buntu banget",
+    "hampa banget",
+    "kosong banget",
+    "gak pantas hidup",
+    "tidak pantas hidup",
+    "sampah masyarakat",
+    "gagal total",
+    "hopeless",
+    "worthless",
+    "cant take it anymore",
+    "can't take it anymore",
+    "give up on life",
+    "tired of living",
+    "better off dead",
+    "no reason to live",
+    "ancaman sebar",
+    "sebar foto",
+    "sebar video",
+    "diancam sebar",
+    "pemerasan",
+    "diperas",
+    "dirudapaksa",
+    "penculikan",
+    "diculik",
+    "disekap",
+    "penyekapan",
+    "ancaman pembunuhan",
+    "bawa senjata",
+    "ditodong",
+    "dianiaya",
+    "penganiayaan",
+    "babak belur",
+    "berdarah-darah",
+    "dibully habis-habisan",
+    "gak punya siapa-siapa",
+    "tidak punya siapa-siapa",
+    "sendirian di dunia",
+    "semua orang benci aku",
+    "semua benci gw",
 ]
 
 
@@ -207,7 +208,7 @@ def has_danger_keyword(text: str) -> bool:
 
 
 def kirim_notifikasi_owner(kategori: str, pesan: str):
-    """Fungsi otomatis untuk mencatat alarm darurat ke Dashboard Owner"""
+    """Fungsi otomatis untuk mencatat alarm darurat ke Dashboard Owner."""
     notif = {
         "waktu": datetime.now().strftime("%d %B %Y - %H:%M:%S"),
         "kategori": kategori,
@@ -247,19 +248,15 @@ def lihat_bukti_foto(filename):
 
 
 # ==========================================
-# API PENGATURAN MOOD TRACKER
+# HELPER GROQ AI & MOOD TRACKER
 # ==========================================
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
-GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
-
-# Menyimpan timestamp alarm tren mood terakhir per pengguna agar tidak spam
 LAST_MOOD_ALERT_TIME = {}
 
 
 def panggil_groq_singkat(system_prompt: str, user_prompt: str, max_tokens: int = 220):
     try:
         payload = {
-            "model": "openai/gpt-oss-120b",
+            "model": GROQ_MODEL,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -291,13 +288,13 @@ def panggil_groq_singkat(system_prompt: str, user_prompt: str, max_tokens: int =
 
 def evaluasi_tren_mood_buruk(nama_user: str):
     """
-    Mengecek apakah dalam beberapa hari terakhir mood pengguna konsisten buruk
-    (bukan rekap harian biasa). Mengembalikan dict info jika perlu lapor ke Owner,
-    atau None jika belum memenuhi pola beberapa hari buruk.
+    Mengecek apakah dalam beberapa entri terakhir mood pengguna konsisten buruk.
+    Mengembalikan dict info jika perlu lapor ke Owner, atau None jika belum memenuhi pola.
     """
     user_key = nama_user.lower()
     riwayat_user = [
-        m for m in DATABASE_OWNER["riwayat_mood"]
+        m
+        for m in DATABASE_OWNER["riwayat_mood"]
         if (m.get("user") or "").strip().lower() == user_key
     ]
 
@@ -318,10 +315,12 @@ def evaluasi_tren_mood_buruk(nama_user: str):
     if terakhir_alarm and (sekarang - terakhir_alarm).total_seconds() < 86400:
         return None
 
-    ringkasan_riwayat = "\n".join([
-        f"- [{m.get('waktu')}] Skor {m.get('skor')}/5 | Catatan: {m.get('catatan')}"
-        for m in reversed(cuplikan)
-    ])
+    ringkasan_riwayat = "\n".join(
+        [
+            f"- [{m.get('waktu')}] Skor {m.get('skor')}/5 | Catatan: {m.get('catatan')}"
+            for m in reversed(cuplikan)
+        ]
+    )
 
     ai_ringkasan = panggil_groq_singkat(
         system_prompt=(
@@ -343,11 +342,6 @@ def evaluasi_tren_mood_buruk(nama_user: str):
             f"Pengguna '{nama_user}' mencatat mood rendah ({jumlah_buruk} dari {len(cuplikan)} entri "
             f"terakhir berskor <= 2, rata-rata {rata_rata:.1f}/5). Perlu perhatian dan pendampingan lanjutan dari Owner."
         )
-    if not ai_ringkasan:
-        ai_ringkasan = (
-            f"Pengguna '{nama_user}' mencatat mood rendah ({jumlah_buruk} dari {len(cuplikan)} entri "
-            f"terakhir berskor <= 2, rata-rata {rata_rata:.1f}/5). Perlu perhatian dan pendampingan lanjutan dari Owner."
-        )
 
     LAST_MOOD_ALERT_TIME[user_key] = sekarang
     return {
@@ -355,16 +349,6 @@ def evaluasi_tren_mood_buruk(nama_user: str):
         "ringkasan": ai_ringkasan,
         "jumlah_buruk": jumlah_buruk,
         "rata_rata": round(rata_rata, 2),
-    }
-
-    LAST_MOOD_ALERT_TIME[user_key] = sekarang
-    return {
-        "rata_rata": round(rata_rata, 1),
-        "jumlah_buruk": jumlah_buruk,
-        "total_dicek": len(cuplikan),
-        "analisis_ai": ai_ringkasan,
-        
-        "riwayat_teks": ringkasan_riwayat,
     }
 
 
@@ -392,41 +376,26 @@ def save_mood():
 
     if evaluasi.get("perlu_perhatian"):
         alert_owner = True
-        DATABASE_OWNER["laporan_darurat"].insert(0, {
-            "waktu": entry["waktu"],
-            "user": nama,
-            "kontak": kontak,
-            "sumber": "Mood Tracker (Tren Negatif Berulang)",
-            "pesan": f"Skor terbaru {skor}/5 — Catatan: {catatan} | {evaluasi.get('ringkasan', '')}",
-            "tingkat": "TREN MOOD SULIT",
-        })
-
-    return jsonify({
-        "status": "success",
-        "alert_owner": alert_owner,
-        "evaluasi": evaluasi,
-        "data": entry,
-    })
-    data = request.json or {}
-    skor = data.get("skor", 3)
-    catatan = data.get("catatan", "-")
-    nama = (data.get("user") or "Pengguna Anonim").strip()
-
-    entry = {
-        "waktu": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "user": nama,
-        "skor": skor,
-        "catatan": catatan,
-    }
-    DATABASE_OWNER["riwayat_mood"].insert(0, entry)
-
-    if int(skor) <= 2:
-        kirim_notifikasi_owner(
-            "TREN MOOD BURUK (1 MINGGU / SKOR RENDAH)",
-            f"Pengguna '{nama}' melaporkan skor mood rendah ({skor}/5) dengan catatan: \"{catatan}\".",
+        DATABASE_OWNER["laporan_darurat"].insert(
+            0,
+            {
+                "waktu": entry["waktu"],
+                "user": nama,
+                "kontak": kontak,
+                "sumber": "Mood Tracker (Tren Negatif Berulang)",
+                "pesan": f"Skor terbaru {skor}/5 — Catatan: {catatan} | {evaluasi.get('ringkasan', '')}",
+                "tingkat": "TREN MOOD SULIT",
+            },
         )
 
-    return jsonify({"status": "success", "message": "Mood berhasil disimpan."})
+    return jsonify(
+        {
+            "status": "success",
+            "alert_owner": alert_owner,
+            "evaluasi": evaluasi,
+            "data": entry,
+        }
+    )
 
 
 # ==========================================
@@ -440,13 +409,17 @@ def chat_ai():
         nama_pengguna = (data.get("user") or "Pengguna Anonim").strip()
 
         if not user_message:
-            return jsonify({
-                "reply": "Silakan tuliskan pesanmu terlebih dahulu ya.",
-                "emergency": False,
-                "handover_to_owner": bool(session.get("owner_handover", False)),
-            })
+            return jsonify(
+                {
+                    "reply": "Silakan tuliskan pesanmu terlebih dahulu ya.",
+                    "emergency": False,
+                    "handover_to_owner": bool(session.get("owner_handover", False)),
+                }
+            )
 
-        DATABASE_OWNER["riwayat_chat"].insert(0, {"user": nama_pengguna, "pesan": user_message})
+        DATABASE_OWNER["riwayat_chat"].insert(
+            0, {"user": nama_pengguna, "pesan": user_message}
+        )
 
         # 1. Cek apakah ada keyword yang membahayakan nyawa
         if has_danger_keyword(user_message):
@@ -458,13 +431,16 @@ def chat_ai():
                 f"Pengguna '{nama_pengguna}' menuliskan pesan berisiko tinggi:\n\"{user_message}\"\nPercakapan dialihkan ke Owner.",
             )
 
-            DATABASE_OWNER["pesan_owner"].insert(0, {
-                "waktu": datetime.now().strftime("%d %B %Y - %H:%M:%S"),
-                "user": nama_pengguna,
-                "kontak": "Dialihkan otomatis dari Ruang Chat Krisis",
-                "pesan": user_message,
-                "status": "DARURAT - PERLU SEGERA DIHUBUNGI",
-            })
+            DATABASE_OWNER["pesan_owner"].insert(
+                0,
+                {
+                    "waktu": datetime.now().strftime("%d %B %Y - %H:%M:%S"),
+                    "user": nama_pengguna,
+                    "kontak": "Dialihkan otomatis dari Ruang Chat Krisis",
+                    "pesan": user_message,
+                    "status": "DARURAT - PERLU SEGERA DIHUBUNGI",
+                },
+            )
 
             handover_reply = (
                 "Aku menangkap pesan yang menunjukkan kamu sedang berada dalam kondisi sangat berat dan berisiko. "
@@ -472,45 +448,54 @@ def chat_ai():
                 "Silakan gunakan Ruang Hubungi Owner di bawah ini atau hubungi layanan darurat terdekat jika kamu sedang dalam bahaya segera."
             )
 
-            return jsonify({
-                "reply": handover_reply,
-                "emergency": True,
-                "handover_to_owner": True,
-            })
+            return jsonify(
+                {
+                    "reply": handover_reply,
+                    "emergency": True,
+                    "handover_to_owner": True,
+                }
+            )
 
         # 2. Jika sesi sebelumnya sudah dialihkan ke Owner, arahkan pesan ke jalur Owner
         if session.get("owner_handover"):
-            DATABASE_OWNER["pesan_owner"].insert(0, {
-                "waktu": datetime.now().strftime("%d %B %Y - %H:%M:%S"),
-                "user": nama_pengguna,
-                "kontak": "Sesi Terhubung dengan Owner",
-                "pesan": user_message,
-                "status": "TERUSKAN KE OWNER",
-            })
-            return jsonify({
-                "reply": (
-                    "Percakapanmu sedang berada dalam mode pendampingan Owner. "
-                    "Pesanmu sudah diteruskan ke Owner SapaBatin—kamu juga bisa menulis detail kontak/cerita tambahan di Ruang Hubungi Owner."
-                ),
-                "emergency": True,
-                "handover_to_owner": True,
-            })
+            DATABASE_OWNER["pesan_owner"].insert(
+                0,
+                {
+                    "waktu": datetime.now().strftime("%d %B %Y - %H:%M:%S"),
+                    "user": nama_pengguna,
+                    "kontak": "Sesi Terhubung dengan Owner",
+                    "pesan": user_message,
+                    "status": "TERUSKAN KE OWNER",
+                },
+            )
+            return jsonify(
+                {
+                    "reply": (
+                        "Percakapanmu sedang berada dalam mode pendampingan Owner. "
+                        "Pesanmu sudah diteruskan ke Owner SapaBatin—kamu juga bisa menulis detail kontak/cerita tambahan di Ruang Hubungi Owner."
+                    ),
+                    "emergency": True,
+                    "handover_to_owner": True,
+                }
+            )
 
         # 3. Percakapan normal dengan Groq API (multi-turn di session)
         raw_history = session.get("chat_history")
         history = [
-            msg for msg in (raw_history if isinstance(raw_history, list) else [])
-            if isinstance(msg, dict) and msg.get("role") in ("user", "assistant") and "content" in msg
+            msg
+            for msg in (raw_history if isinstance(raw_history, list) else [])
+            if isinstance(msg, dict)
+            and msg.get("role") in ("user", "assistant")
+            and "content" in msg
         ]
 
-        history.append({
-            "role": "user",
-            "content": user_message,
-        })
+        history.append(
+            {
+                "role": "user",
+                "content": user_message,
+            }
+        )
         recent_history = history[-10:]
-
-        groq_api_key = "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"
-        groq_url = "https://api.groq.com/openai/v1/chat/completions"
 
         system_prompt = (
             "Kamu adalah SapaBatin, AI pendamping kesehatan mental remaja yang hangat, "
@@ -520,7 +505,7 @@ def chat_ai():
         )
 
         payload = {
-            "model": "openai/gpt-oss-120b",
+            "model": GROQ_MODEL,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 *recent_history,
@@ -530,10 +515,10 @@ def chat_ai():
 
         req_data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
-            groq_url,
+            GROQ_CHAT_URL,
             data=req_data,
             headers={
-                "Authorization": f"Bearer {groq_api_key}",
+                "Authorization": f"Bearer {GROQ_API_KEY}",
                 "Content-Type": "application/json",
                 "User-Agent": "SapaBatin-Flask/1.0",
             },
@@ -550,7 +535,9 @@ def chat_ai():
 
                 choices = res_json.get("choices") or []
                 if choices:
-                    content_text = (((choices[0].get("message") or {}).get("content")) or "").strip()
+                    content_text = (
+                        ((choices[0].get("message") or {}).get("content")) or ""
+                    ).strip()
                     if content_text:
                         ai_reply = content_text
 
@@ -572,26 +559,32 @@ def chat_ai():
                 "Coba kirim ulang pesannya atau gunakan tab Ruang Hubungi Owner jika kamu ingin langsung terhubung dengan Owner."
             )
         else:
-            history.append({
-                "role": "assistant",
-                "content": ai_reply,
-            })
+            history.append(
+                {
+                    "role": "assistant",
+                    "content": ai_reply,
+                }
+            )
             session["chat_history"] = history[-12:]
             session.modified = True
 
-        return jsonify({
-            "reply": ai_reply,
-            "emergency": False,
-            "handover_to_owner": False,
-        })
+        return jsonify(
+            {
+                "reply": ai_reply,
+                "emergency": False,
+                "handover_to_owner": False,
+            }
+        )
 
     except Exception as e:
         print(f"Error fatal pada /api/chat: {repr(e)}")
-        return jsonify({
-            "reply": f"Terjadi error di server Flask: {repr(e)}",
-            "emergency": False,
-            "handover_to_owner": bool(session.get("owner_handover", False)),
-        })
+        return jsonify(
+            {
+                "reply": f"Terjadi error di server Flask: {repr(e)}",
+                "emergency": False,
+                "handover_to_owner": bool(session.get("owner_handover", False)),
+            }
+        )
 
 
 # ==========================================
@@ -606,7 +599,10 @@ def hubungi_owner():
     darurat = bool(data.get("darurat", False))
 
     if not pesan:
-        return jsonify({"status": "error", "message": "Pesan untuk Owner tidak boleh kosong."}), 400
+        return (
+            jsonify({"status": "error", "message": "Pesan untuk Owner tidak boleh kosong."}),
+            400,
+        )
 
     entry = {
         "waktu": datetime.now().strftime("%d %B %Y - %H:%M:%S"),
@@ -622,10 +618,12 @@ def hubungi_owner():
         f"Dari: {nama} | Kontak: {kontak}\nPesan: \"{pesan}\"",
     )
 
-    return jsonify({
-        "status": "success",
-        "message": "Pesanmu sudah terkirim ke ruang pantauan Owner SapaBatin. Jika kamu dalam bahaya mendesak, segera hubungi layanan darurat 119 / hotline terdekat.",
-    })
+    return jsonify(
+        {
+            "status": "success",
+            "message": "Pesanmu sudah terkirim ke ruang pantauan Owner SapaBatin. Jika kamu dalam bahaya mendesak, segera hubungi layanan darurat 119 / hotline terdekat.",
+        }
+    )
 
 
 @app.route("/api/reset-handover", methods=["POST"])
@@ -660,20 +658,29 @@ def laporan_hukum():
                 continue
             original_name = secure_filename(file_storage.filename)
             if not is_allowed_image(original_name):
-                return jsonify({
-                    "status": "error",
-                    "message": f"Format file '{file_storage.filename}' tidak didukung. Gunakan PNG, JPG, JPEG, WEBP, atau GIF.",
-                }), 400
+                return (
+                    jsonify(
+                        {
+                            "status": "error",
+                            "message": f"Format file '{file_storage.filename}' tidak didukung. Gunakan PNG, JPG, JPEG, WEBP, atau GIF.",
+                        }
+                    ),
+                    400,
+                )
 
             ext = original_name.rsplit(".", 1)[1].lower()
-            unique_filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.{ext}"
+            unique_filename = (
+                f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.{ext}"
+            )
             save_path = os.path.join(UPLOAD_FOLDER, unique_filename)
             file_storage.save(save_path)
 
-            saved_photos.append({
-                "nama_asli": file_storage.filename,
-                "url": url_for("lihat_bukti_foto", filename=unique_filename),
-            })
+            saved_photos.append(
+                {
+                    "nama_asli": file_storage.filename,
+                    "url": url_for("lihat_bukti_foto", filename=unique_filename),
+                }
+            )
 
         laporan = {
             "waktu": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -694,15 +701,22 @@ def laporan_hukum():
             f"Kronologi: {kronologi}\nBukti Teks: {bukti_teks}\nFoto Bukti: {info_foto}",
         )
 
-        return jsonify({
-            "status": "success",
-            "message": f"Laporan berhasil dikirimkan ke Owner SapaBatin ({len(saved_photos)} foto bukti terlampir).",
-            "jumlah_foto": len(saved_photos),
-        })
+        return jsonify(
+            {
+                "status": "success",
+                "message": f"Laporan berhasil dikirimkan ke Owner SapaBatin ({len(saved_photos)} foto bukti terlampir).",
+                "jumlah_foto": len(saved_photos),
+            }
+        )
 
     except Exception as e:
         print(f"Error pada /api/lapor: {repr(e)}")
-        return jsonify({"status": "error", "message": f"Gagal memproses laporan: {repr(e)}"}), 500
+        return (
+            jsonify(
+                {"status": "error", "message": f"Gagal memproses laporan: {repr(e)}"}
+            ),
+            500,
+        )
 
 
 # ==========================================
@@ -713,11 +727,12 @@ def owner_login():
     error = None
     if request.method == "POST":
         pin_input = request.form.get("pin")
-        if pin_input == "11204":
+        OWNER_PIN = os.environ.get("OWNER_PIN", "11204")
+        if pin_input == OWNER_PIN:
             session["owner_logged"] = True
             return redirect(url_for("owner_dashboard"))
         else:
-            error = "PIN Owner salah! Silakan coba lagi."
+            error = "PIN Pendamping salah! Silakan coba lagi."
     return render_template("owner_login.html", error=error)
 
 
@@ -729,11 +744,10 @@ def owner_dashboard():
 
 
 @app.route("/owner-logout")
-
 def owner_logout():
-    
     session.pop("owner_logged", None)
     return redirect(url_for("owner_login"))
+
 
 # ==========================================
 # API KOMUNIKASI OWNER -> PENGGUNA (MASALAH SERIUS)
@@ -741,7 +755,15 @@ def owner_logout():
 @app.route("/api/owner-kirim-pesan", methods=["POST"])
 def owner_kirim_pesan():
     if not session.get("owner_logged"):
-        return jsonify({"status": "error", "message": "Akses ditolak. Silakan login sebagai Owner."}), 403
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Akses ditolak. Silakan login sebagai Owner.",
+                }
+            ),
+            403,
+        )
 
     data = request.json or {}
     target_user = (data.get("target_user") or "Semua Pengguna / Darurat").strip()
@@ -750,7 +772,15 @@ def owner_kirim_pesan():
     prioritas = (data.get("prioritas") or "PENDAMPINGAN SERIUS").strip()
 
     if not isi_pesan:
-        return jsonify({"status": "error", "message": "Isi pesan ke pengguna tidak boleh kosong."}), 400
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Isi pesan ke pengguna tidak boleh kosong.",
+                }
+            ),
+            400,
+        )
 
     entry = {
         "id": uuid.uuid4().hex[:8],
@@ -762,11 +792,13 @@ def owner_kirim_pesan():
     }
     DATABASE_OWNER["balasan_owner"].insert(0, entry)
 
-    return jsonify({
-        "status": "success",
-        "message": f"Pesan pendampingan Owner berhasil dikirimkan untuk '{target_user}'.",
-        "data": entry,
-    })
+    return jsonify(
+        {
+            "status": "success",
+            "message": f"Pesan pendampingan Owner berhasil dikirimkan untuk '{target_user}'.",
+            "data": entry,
+        }
+    )
 
 
 @app.route("/api/pesan-dari-owner", methods=["GET"])
@@ -775,18 +807,23 @@ def cek_pesan_dari_owner():
     semua_balasan = DATABASE_OWNER.get("balasan_owner") or []
 
     if not nama_user or nama_user == "pengguna anonim":
-        # Tampilkan pesan yang ditujukan ke pengguna anonim / semua pengguna
         cocok = [
-            b for b in semua_balasan
-            if b.get("target_user", "").lower() in ("pengguna anonim", "remaja sapabatin", "semua pengguna / darurat", "")
+            b
+            for b in semua_balasan
+            if b.get("target_user", "").lower()
+            in ("pengguna anonim", "remaja sapabatin", "semua pengguna / darurat", "")
         ]
     else:
         cocok = [
-            b for b in semua_balasan
-            if b.get("target_user", "").lower() in (nama_user, "semua pengguna / darurat", "pengguna anonim")
+            b
+            for b in semua_balasan
+            if b.get("target_user", "").lower()
+            in (nama_user, "semua pengguna / darurat", "pengguna anonim")
         ]
 
     return jsonify({"status": "success", "pesan_owner": cocok})
+
+
 # ==========================================
 # MENJALANKAN SERVER FLASK
 # ==========================================
